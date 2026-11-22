@@ -1,0 +1,973 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Integration ~dxsh</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=JetBrains+Mono:wght@400;600&family=Source+Sans+3:wght@400;600;700&family=Source+Serif+4:wght@400;600&display=swap">
+<style>
+/* Layout: graph-paper ground, a sticky level rail, and one lesson sheet per level (idea > lab > worked example > check). */
+:root{
+  --bg:#EDF2F6; --grid:#DBE4EB; --panel:#FFFFFF; --lab:#F4F8FB; --ink:#10263B; --muted:#53687C; --line:#C8D5DF;
+  --accent:#0A6BA0; --accent-soft:#CFE6F4; --amber:#B86A00; --amber-soft:#F8E2B8; --good:#17794A; --bad:#B3261E; --on:#FFFFFF;
+  --f-display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --f-body:"Source Sans 3",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-math:"Source Serif 4","Times New Roman",Georgia,serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0B1620; --grid:#14232F; --panel:#112230; --lab:#0E1C28; --ink:#E3EDF5; --muted:#90A6B8; --line:#27394A;
+    --accent:#5BB8EC; --accent-soft:#17415B; --amber:#F2B35A; --amber-soft:#4A3510; --good:#5FD29A; --bad:#FF8F86; --on:#06202F;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0B1620; --grid:#14232F; --panel:#112230; --lab:#0E1C28; --ink:#E3EDF5; --muted:#90A6B8; --line:#27394A;
+  --accent:#5BB8EC; --accent-soft:#17415B; --amber:#F2B35A; --amber-soft:#4A3510; --good:#5FD29A; --bad:#FF8F86; --on:#06202F;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-padding-top:72px;scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
+body{
+  margin:0;background-color:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:17px;line-height:1.55;
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:28px 28px;
+}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.wrap{max-width:960px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--f-display);line-height:1.1;margin:0;text-wrap:balance}
+h2{font-size:clamp(28px,4.5vw,40px);font-weight:800;letter-spacing:-.01em}
+h3{font-size:18px;font-weight:600;letter-spacing:0}
+p{margin:.6em 0;max-width:68ch}
+.band{font:600 12px var(--f-mono);letter-spacing:.09em;text-transform:uppercase;color:var(--accent);margin:0 0 6px}
+
+/* hero */
+.hero{padding-block:28px 21px}
+.hero-in{background:var(--bg);display:flex;gap:24px;align-items:center;flex-wrap:wrap;padding:8px 0}
+.glyph{font:400 clamp(90px,16vw,150px)/1 var(--f-math);color:var(--accent);margin-top:-6px}
+.hero h1{font-size:clamp(38px,7vw,64px);font-weight:800;letter-spacing:-.02em}
+.sub{font-size:19px;color:var(--muted);margin:10px 0 14px}
+.prog{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font:600 13px var(--f-mono)}
+.bar{width:min(240px,50vw);height:10px;border:1px solid var(--line);border-radius:6px;background:var(--panel);overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .4s}
+
+/* rail */
+.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:8px 0;scrollbar-width:none}
+.chip{flex:none;font:600 13px var(--f-display);border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:8px;padding:6px 10px;cursor:pointer;white-space:nowrap}
+.chip b{font:600 11px var(--f-mono);color:var(--muted);margin-right:6px}
+.chip.on{background:var(--accent);border-color:var(--accent);color:var(--on)}
+.chip.on b{color:var(--on)}
+.chip.done::after{content:" \2713";color:var(--good);font-weight:700}
+.chip.on.done::after{color:var(--on)}
+
+/* sheets */
+.sheet{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:clamp(16px,3.2vw,30px);margin-block:22px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.sheet>*{min-width:0}
+.lead{font-size:19px}
+.eq{display:block;font-size:1.3em;padding:10px 14px;background:var(--lab);border:1px solid var(--line);border-radius:8px;overflow-x:auto;max-width:100%}
+.m{font-family:var(--f-math);font-size:1.07em}
+.m sup,.m sub{font-size:.7em;line-height:0}
+.fr{display:inline-flex;flex-direction:column;vertical-align:middle;text-align:center;margin:0 .12em;line-height:1.15}
+.fr>span:first-child{border-bottom:1px solid currentColor;padding:0 .2em}
+.fr>span:last-child{padding:0 .2em}
+.ov{border-top:1px solid currentColor;padding-top:1px}
+.il{position:relative;display:inline-block;font-size:1.5em;line-height:1;vertical-align:middle;margin-right:.55em}
+.il .hi,.il .lo{position:absolute;left:62%;font-size:.42em;line-height:1;white-space:nowrap}
+.il .hi{top:-.12em}.il .lo{bottom:-.18em}
+.ev{white-space:nowrap}
+.lm{display:inline-flex;flex-direction:column;font-size:.62em;vertical-align:middle;line-height:1.1;margin-left:.1em}
+.note{font-size:15px;color:var(--muted)}
+.lab{background:var(--lab);border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:12px}
+.lab h3,.ex h3,.check h3{display:flex;align-items:center;gap:8px}
+.lab h3::before{content:"LAB";font:600 11px var(--f-mono);letter-spacing:.08em;color:var(--on);background:var(--amber);padding:2px 6px;border-radius:4px}
+.ex h3::before{content:"WORKED";font:600 11px var(--f-mono);letter-spacing:.08em;color:var(--on);background:var(--accent);padding:2px 6px;border-radius:4px}
+.check h3::before{content:"CHECK";font:600 11px var(--f-mono);letter-spacing:.08em;color:var(--on);background:var(--good);padding:2px 6px;border-radius:4px}
+.ctl{display:flex;flex-wrap:wrap;gap:10px 20px;align-items:center}
+.ctl label{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600}
+.ctl output{font:600 13px var(--f-mono);min-width:3.2em;color:var(--accent)}
+input[type=range]{accent-color:var(--accent);width:min(180px,40vw)}
+input[type=number],input[type=text]{font:600 15px var(--f-mono);width:5.5em;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink)}
+select{font:600 15px var(--f-body);padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);max-width:100%}
+.cv{display:block;width:100%;height:clamp(230px,46vw,340px);border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+.cv.tall{height:clamp(280px,58vw,440px)}
+.info{font-size:16px;display:flex;flex-direction:column;gap:6px;min-height:3em}
+.info p{margin:0}
+.btn{font:600 14px var(--f-body);padding:8px 14px;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:var(--on);cursor:pointer}
+.btn.ghost{background:transparent;color:var(--accent)}
+.btn.small{padding:4px 10px;font-size:12px}
+.btn:disabled{opacity:.4;cursor:default}
+:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
+.frow{display:grid;grid-template-columns:1fr 1.2fr auto;gap:6px 16px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.frow .chk{grid-column:1/-1;font-size:15px;color:var(--muted);padding:6px 10px;background:var(--lab);border-radius:6px}
+@media (max-width:640px){.frow{grid-template-columns:1fr auto}.frow>.m:nth-child(2){grid-column:1/-1;order:3}}
+.frows{overflow-x:auto}
+.steps{display:flex;flex-direction:column;gap:6px}
+.step{display:grid;grid-template-columns:9.5em 1fr;gap:4px 12px;padding:8px 10px;border-left:3px solid var(--accent);background:var(--panel);border-radius:0 6px 6px 0;animation:in .25s}
+@keyframes in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.step .k{font:600 12px var(--f-mono);letter-spacing:.04em;text-transform:uppercase;color:var(--muted);padding-top:3px}
+.step .m{overflow-x:auto}
+@media (max-width:560px){.step{grid-template-columns:1fr}}
+.big{font-size:1.25em;padding:8px 12px;background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow-x:auto}
+.pick{display:flex;gap:10px;flex-wrap:wrap}
+.pick .opt{flex:1 1 140px;text-align:center}
+.q{display:flex;flex-direction:column;gap:8px;padding:12px 0;border-bottom:1px solid var(--line)}
+.qt{margin:0;font-weight:600}
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:8px}
+.opt{font:400 16px var(--f-body);text-align:left;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);cursor:pointer;min-width:0;overflow-wrap:anywhere}
+.opt:hover:not(:disabled){border-color:var(--accent)}
+.opt.ok{border-color:var(--good);background:color-mix(in srgb,var(--good) 16%,var(--panel))}
+.opt.no{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 16%,var(--panel))}
+.why{margin:0;font-size:15px;color:var(--muted)}
+.qfoot{padding-top:10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-weight:600;min-height:2em}
+.msg{font-weight:600}
+.msg.ok{color:var(--good)}.msg.no{color:var(--bad)}
+.sheetgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,400px),1fr));gap:14px}
+.card{background:var(--lab);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-width:0}
+.card h3{font-size:16px;margin-bottom:6px}
+.card .row{padding:6px 0;border-top:1px dashed var(--line);overflow-x:auto}
+.card .row:first-of-type{border-top:0}
+footer{padding:10px 0 48px;font-size:14px;color:var(--muted)}
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="hero-in">
+      <div class="glyph" aria-hidden="true">&int;</div>
+      <div>
+        <p class="band">&middot;Mathematics&middot;</p>
+        <h1>Integration</h1>
+        <p class="sub">~dxsh</p>
+        <div class="prog">
+          <div class="bar"><i id="bar"></i></div>
+          <span id="progt">0 of 10 levels cleared</span>
+          <button id="reset" class="btn ghost small" type="button">Reset progress</button>
+        </div>
+      </div>
+    </div>
+  </header>
+</div>
+
+<nav class="rail" aria-label="Levels"><div class="wrap"><div class="chips" id="chips"></div></div></nav>
+
+<main class="wrap">
+
+<!-- LEVEL 1 -->
+<section class="sheet" id="L1">
+  <div><p class="band">Level 01 &middot; Foundation</p><h2>Antiderivatives</h2></div>
+  <p class="lead">Differentiation takes a function and returns its slope. Integration runs it backwards: given the slope function f(x), find a function F(x) whose derivative is f(x).</p>
+  <div class="eq m">\int f(x)\,dx = F(x) + C \quad where \quad F'(x) = f(x)</div>
+  <p>The constant matters. A constant vanishes when you differentiate, so x<sup>2</sup>, x<sup>2</sup> + 1 and x<sup>2</sup> &minus; 7 all have slope 2x. The antiderivative is a whole family of parallel curves, and C selects one of them.</p>
+  <div class="lab">
+    <h3>Slide the curve, read the slope</h3>
+    <div class="ctl">
+      <label>Slope function <select id="l1f"></select></label>
+      <label>C <input id="l1c" type="range" min="-3" max="3" step="0.5" value="0"><output id="l1co"></output></label>
+      <label>x&#8320; <input id="l1x" type="range" min="-2" max="2" step="0.1" value="1"><output id="l1xo"></output></label>
+      <label><input id="l1fam" type="checkbox" checked> Show the family</label>
+    </div>
+    <canvas id="l1cv" class="cv" role="img" aria-label="Family of antiderivative curves with a tangent line"></canvas>
+    <div class="info" id="l1info"></div>
+  </div>
+  <div class="ex">
+    <h3>Find the curve with slope 2x through (1, 4)</h3>
+    <div class="steps">
+      <div class="step"><span class="k">Integrate</span><span class="m">y = \int 2x\,dx = x^2 + C</span></div>
+      <div class="step"><span class="k">Use the point</span><span class="m">4 = 1^2 + C \Rightarrow C = 3</span></div>
+      <div class="step"><span class="k">Answer</span><span class="m">y = x^2 + 3</span></div>
+    </div>
+  </div>
+  <div class="check"><h3>Check yourself</h3><div class="quiz" data-n="1"></div></div>
+</section>
+
+<!-- LEVEL 2 -->
+<section class="sheet" id="L2">
+  <div><p class="band">Level 02 &middot; Foundation</p><h2>Basic formulas</h2></div>
+  <p class="lead">Every derivative you already know is an integral formula read backwards. Two rules let you build larger answers from these pieces.</p>
+  <div class="eq m">\int k\,f(x)\,dx = k\int f(x)\,dx \qquad \int [f(x) \pm g(x)]\,dx = \int f(x)\,dx \pm \int g(x)\,dx</div>
+  <div class="frows" id="basics"></div>
+  <div class="lab">
+    <h3>Power rule drill</h3>
+    <div class="big m" id="drillQ"></div>
+    <div class="opts" id="drillO"></div>
+    <div class="ctl"><button class="btn" id="drillNew" type="button">New problem</button><span class="msg" id="drillMsg"></span></div>
+  </div>
+  <div class="ex">
+    <h3>Rewrite first, then integrate</h3>
+    <div class="steps">
+      <div class="step"><span class="k">Problem 1</span><span class="m">\int \frac{(x+1)^2}{x}\,dx = \int \Big(x + 2 + \frac{1}{x}\Big)dx = \frac{x^2}{2} + 2x + \ln|x| + C</span></div>
+      <div class="step"><span class="k">Problem 2</span><span class="m">\int \tan^2 x\,dx = \int (\sec^2 x - 1)\,dx = \tan x - x + C</span></div>
+      <div class="step"><span class="k">Problem 3</span><span class="m">\int (4x^3 - \frac{2}{x} + 5\cos x)\,dx = x^4 - 2\ln|x| + 5\sin x + C</span></div>
+    </div>
+  </div>
+  <div class="check"><h3>Check yourself</h3><div class="quiz" data-n="2"></div></div>
+</section>
+
+<!-- LEVEL 3 -->
+<section class="sheet" id="L3">
+  <div><p class="band">Level 03 &middot; Core techniques</p><h2>Substitution</h2></div>
+  <p class="lead">Substitution undoes the chain rule. When the integrand looks like f(g(x)) times g'(x), name the inside function u = g(x). Then g'(x) dx becomes du and the integral shrinks to a basic one.</p>
+  <div class="eq m">\int f(g(x))\,g'(x)\,dx = \int f(u)\,du \quad with \quad u = g(x)</div>
+  <p class="note">A shortcut worth remembering: when the top is the derivative of the bottom, \int \frac{f'(x)}{f(x)}\,dx = \ln|f(x)| + C.</p>
+  <div class="lab">
+    <h3>Step through a substitution</h3>
+    <div class="ctl"><label>Integral <select id="l3sel"></select></label>
+      <button class="btn" id="l3next" type="button">Next step</button>
+      <button class="btn ghost" id="l3reset" type="button">Restart</button></div>
+    <div class="big m" id="l3int"></div>
+    <div class="steps" id="l3steps"></div>
+  </div>
+  <div class="check"><h3>Check yourself</h3><div class="quiz" data-n="3"></div></div>
+</section>
+
+<!-- LEVEL 4 -->
+<section class="sheet" id="L4">
+  <div><p class="band">Level 04 &middot; Core techniques</p><h2>Standard forms and completing the square</h2></div>
+  <p class="lead">A handful of integrals involving x<sup>2</sup> &plusmn; a<sup>2</sup> turn up constantly. Learn the shapes, then use completing the square to force any quadratic into one of them.</p>
+  <div class="frows" id="stdforms"></div>
+  <div class="lab">
+    <h3>The bell curve and its arctangent</h3>
+    <p class="note" style="margin:0">Here f(x) = 1/(x<sup>2</sup> + a<sup>2</sup>) in blue and its antiderivative F(x) = (1/a) tan<sup>-1</sup>(x/a) in amber. Change a and watch F flatten out.</p>
+    <div class="ctl"><label>a <input id="l4a" type="range" min="0.5" max="3" step="0.1" value="1"><output id="l4ao"></output></label></div>
+    <canvas id="l4cv" class="cv" role="img" aria-label="Graph of 1 over x squared plus a squared and its arctangent antiderivative"></canvas>
+    <div class="info" id="l4info"></div>
+  </div>
+  <div class="ex">
+    <h3>Completing the square</h3>
+    <div class="steps">
+      <div class="step"><span class="k">Example A</span><span class="m">\int \frac{dx}{x^2+4x+13} = \int \frac{dx}{(x+2)^2+3^2} = \frac{1}{3}\tan^{-1}\frac{x+2}{3} + C</span></div>
+      <div class="step"><span class="k">Example B</span><span class="m">\int \frac{dx}{\sqrt{5-4x-x^2}} = \int \frac{dx}{\sqrt{3^2-(x+2)^2}} = \sin^{-1}\frac{x+2}{3} + C</span></div>
+    </div>
+    <p class="note">For B: 5 &minus; 4x &minus; x<sup>2</sup> = 9 &minus; (x + 2)<sup>2</sup>, so a = 3 and the inside is x + 2.</p>
+  </div>
+  <div class="check"><h3>Check yourself</h3><div class="quiz" data-n="4"></div></div>
+</section>
+
+<!-- LEVEL 5 -->
+<section class="sheet" id="L5">
+  <div><p class="band">Level 05 &middot; Advanced techniques</p><h2>Partial fractions</h2></div>
+  <p class="lead">A rational function P(x)/Q(x) with deg P &lt; deg Q can be split into simpler fractions, one for each factor of Q. If deg P &ge; deg Q, divide first.</p>
+  <div class="sheetgrid">
+    <div class="card"><h3>Distinct linear factors</h3><span class="m">\frac{px+q}{(x-a)(x-b)} = \frac{A}{x-a} + \frac{B}{x-b}</span></div>
+    <div class="card"><h3>Repeated factor</h3><span class="m">\frac{px^2+qx+r}{(x-a)^2(x-b)} = \frac{A}{x-a} + \frac{B}{(x-a)^2} + \frac{C}{x-b}</span></div>
+    <div class="card"><h3>Irreducible quadratic</h3><span class="m">\frac{px^2+qx+r}{(x-a)(x^2+bx+c)} = \frac{A}{x-a} + \frac{Bx+C}{x^2+bx+c}</span></div>
+  </div>
+  <div class="lab">
+    <h3>Cover-up solver</h3>
+    <p class="note" style="margin:0">Enter distinct a and b and the numerator px + q. To find A, cover the factor (x &minus; a) and put x = a in everything else.</p>
+    <div class="ctl">
+      <label>p <input id="l5p" type="number" value="3"></label>
+      <label>q <input id="l5q" type="number" value="1"></label>
+      <label>a <input id="l5a" type="number" value="1"></label>
+      <label>b <input id="l5b" type="number" value="-2"></label>
+    </div>
+    <div class="info" id="l5info"></div>
+  </div>
+  <div class="ex">
+    <h3>Two more</h3>
+    <div class="steps">
+      <div class="step"><span class="k">Distinct</span><span class="m">\frac{1}{(x-2)(x-3)} = \frac{-1}{x-2} + \frac{1}{x-3} \Rightarrow \int = \ln\Big|\frac{x-3}{x-2}\Big| + C</span></div>
+      <div class="step"><span class="k">Repeated</span><span class="m">\frac{1}{x(x+1)^2} = \frac{1}{x} - \frac{1}{x+1} - \frac{1}{(x+1)^2} \Rightarrow \int = \ln\Big|\frac{x}{x+1}\Big| + \frac{1}{x+1} + C</span></div>
+    </div>
+  </div>
+  <div class="check"><h3>Check yourself</h3><div class="quiz" data-n="5"></div></div>
+</section>
+
+<!-- LEVEL 6 -->
+<section class="sheet" id="L6">
+  <div><p class="band">Level 06 &middot; Advanced techniques</p><h2>Integration by parts</h2></div>
+  <p class="lead">Parts undoes the product rule. Split the integrand into u and dv, then trade the hard integral for an easier one.</p>
+  <div class="eq m">\int u\,dv = uv - \int v\,du</div>
+  <p>Pick u using <b>ILATE</b>: Inverse trig, Logarithmic, Algebraic, Trigonometric, Exponential. The function that comes first in the list is usually u.</p>
+  <div class="lab">
+    <h3>Choose u, then see why</h3>
+    <div class="ctl"><label>Integral <select id="l6sel"></select></label></div>
+    <div class="big m" id="l6int"></div>
+    <div class="pick" id="l6pick"></div>
+    <div class="info" id="l6fb"></div>
+    <div class="steps" id="l6steps"></div>
+  </div>
+  <div class="ex">
+    <h3>A useful shortcut</h3>
+    <div class="steps">
+      <div class="step"><span class="k">Rule</span><span class="m">\int e^x[f(x) + f'(x)]\,dx = e^x f(x) + C</span></div>
+      <div class="step"><span class="k">Example</span><span class="m">\int e^x(\sin x + \cos x)\,dx = e^x\sin x + C</span></div>
+    </div>
+  </div>
+  <div class="check"><h3>Check yourself</h3><div class="quiz" data-n="6"></div></div>
+</section>
+
+<!-- LEVEL 7 -->
+<section class="sheet" id="L7">
+  <div><p class="band">Level 07 &middot; Definite integrals</p><h2>Area, Riemann sums and the Fundamental Theorem</h2></div>
+  <p class="lead">The definite integral is the signed area between a curve and the x-axis from x = a to x = b. Add up thin strips and let them get thinner. The Fundamental Theorem says the limit is simply F(b) &minus; F(a).</p>
+  <div class="eq m">\intl{a}{b} f(x)\,dx = \lim_{n \to \infty} \sum f(x_i)\,\Delta x = F(b) - F(a)</div>
+  <div class="lab">
+    <h3>Add up the strips</h3>
+    <div class="ctl">
+      <label>f(x) <select id="l7f"></select></label>
+      <label>Rule <select id="l7m"><option value="left">Left ends</option><option value="right">Right ends</option><option value="mid">Midpoints</option><option value="trap">Trapezoids</option></select></label>
+      <label>Strips n <input id="l7n" type="range" min="1" max="120" value="6"><output id="l7no"></output></label>
+    </div>
+    <canvas id="l7cv" class="cv" role="img" aria-label="Riemann sum rectangles under a curve"></canvas>
+    <div class="info" id="l7info"></div>
+  </div>
+  <div class="lab">
+    <h3>Evaluate it yourself</h3>
+    <div class="big m" id="l7q"></div>
+    <div class="ctl"><label>Answer <input id="l7ans" type="text" inputmode="decimal" autocomplete="off"></label><button class="btn" id="l7chk" type="button">Check</button><button class="btn ghost" id="l7new" type="button">New problem</button></div>
+    <div class="info" id="l7fb"></div>
+  </div>
+  <div class="ex">
+    <h3>Worked examples</h3>
+    <div class="steps">
+      <div class="step"><span class="k">Polynomial</span><span class="m">\intl{0}{2}(3x^2+1)\,dx = \ev{x^3 + x}{0}{2} = 10 - 0 = 10</span></div>
+      <div class="step"><span class="k">Trig</span><span class="m">\intl{0}{\pi/2}\cos x\,dx = \ev{\sin x}{0}{\pi/2} = 1</span></div>
+      <div class="step"><span class="k">Change limits</span><span class="m">\intl{0}{1}2x e^{x^2}dx: u = x^2 gives limits 0 to 1, so \intl{0}{1}e^u\,du = e - 1</span></div>
+    </div>
+    <p class="note">When you substitute inside a definite integral, change the limits too, and you never need to go back to x.</p>
+  </div>
+  <div class="check"><h3>Check yourself</h3><div class="quiz" data-n="7"></div></div>
+</section>
+
+<!-- LEVEL 8 -->
+<section class="sheet" id="L8">
+  <div><p class="band">Level 08 &middot; Definite integrals</p><h2>Properties of definite integrals</h2></div>
+  <p class="lead">These properties turn long calculations into one-liners, and they are favourites in board papers.</p>
+  <div class="sheetgrid">
+    <div class="card"><h3>Basic</h3>
+      <div class="row m">\intl{a}{b}f(x)\,dx = \intl{a}{b}f(t)\,dt</div>
+      <div class="row m">\intl{a}{b}f\,dx = - \intl{b}{a}f\,dx</div>
+      <div class="row m">\intl{a}{b}f\,dx = \intl{a}{c}f\,dx + \intl{c}{b}f\,dx</div></div>
+    <div class="card"><h3>Reflection (the King property)</h3>
+      <div class="row m">\intl{a}{b}f(x)\,dx = \intl{a}{b}f(a+b-x)\,dx</div>
+      <div class="row m">\intl{0}{a}f(x)\,dx = \intl{0}{a}f(a-x)\,dx</div></div>
+    <div class="card"><h3>Even and odd</h3>
+      <div class="row m">\intl{-a}{a}f\,dx = 2\intl{0}{a}f\,dx \quad if f(-x) = f(x)</div>
+      <div class="row m">\intl{-a}{a}f\,dx = 0 \quad if f(-x) = -f(x)</div></div>
+    <div class="card"><h3>Doubling the interval</h3>
+      <div class="row m">\intl{0}{2a}f\,dx = 2\intl{0}{a}f\,dx \quad if f(2a-x) = f(x)</div>
+      <div class="row m">\intl{0}{2a}f\,dx = 0 \quad if f(2a-x) = -f(x)</div></div>
+  </div>
+  <div class="lab">
+    <h3>Even, odd or neither?</h3>
+    <div class="ctl">
+      <label>f(x) <select id="l8f"></select></label>
+      <label>a <input id="l8a" type="range" min="0.5" max="3" step="0.1" value="2"><output id="l8ao"></output></label>
+    </div>
+    <canvas id="l8cv" class="cv" role="img" aria-label="Shaded signed area from minus a to a"></canvas>
+    <div class="info" id="l8info"></div>
+  </div>
+  <div class="ex">
+    <h3>The King property in action</h3>
+    <div class="steps">
+      <div class="step"><span class="k">Set up</span><span class="m">I = \intl{0}{\pi/2}\frac{\sin x}{\sin x + \cos x}\,dx</span></div>
+      <div class="step"><span class="k">Reflect</span><span class="m">I = \intl{0}{\pi/2}\frac{\cos x}{\cos x + \sin x}\,dx \quad (replace x by \pi/2 - x)</span></div>
+      <div class="step"><span class="k">Add</span><span class="m">2I = \intl{0}{\pi/2}1\,dx = \frac{\pi}{2}</span></div>
+      <div class="step"><span class="k">Answer</span><span class="m">I = \frac{\pi}{4}</span></div>
+    </div>
+  </div>
+  <div class="check"><h3>Check yourself</h3><div class="quiz" data-n="8"></div></div>
+</section>
+
+<!-- LEVEL 9 -->
+<section class="sheet" id="L9">
+  <div><p class="band">Level 09 &middot; Applications</p><h2>Area under and between curves</h2></div>
+  <p class="lead">Sketch the region, find where the curves meet, then integrate (top &minus; bottom) over x, or (right &minus; left) over y. Two scenes below reuse the parabola and ellipse from the Conic Sections chapter.</p>
+  <div class="eq m">Area = \intl{a}{b}[f(x) - g(x)]\,dx \quad where f(x) \ge g(x) on [a, b]</div>
+  <div class="lab">
+    <h3>Pick a region</h3>
+    <div class="ctl"><label>Scene <select id="l9sel"></select></label><span id="l9ctl" class="ctl"></span></div>
+    <canvas id="l9cv" class="cv tall" role="img" aria-label="Shaded region between curves"></canvas>
+    <div class="info" id="l9info"></div>
+  </div>
+  <div class="ex">
+    <h3>Why the parabola area is 8a&sup2;/3</h3>
+    <div class="steps">
+      <div class="step"><span class="k">Boundaries</span><span class="m">y^2 = 4ax, \; x = a \Rightarrow y = \pm 2a</span></div>
+      <div class="step"><span class="k">Symmetry</span><span class="m">Area = 2\intl{0}{a}2\sqrt{a}\,\sqrt{x}\,dx = 4\sqrt{a}\,\ev{\frac{2}{3}x^{3/2}}{0}{a}</span></div>
+      <div class="step"><span class="k">Evaluate</span><span class="m">= 4\sqrt{a} \cdot \frac{2}{3}a^{3/2} = \frac{8a^2}{3}</span></div>
+    </div>
+  </div>
+  <div class="check"><h3>Check yourself</h3><div class="quiz" data-n="9"></div></div>
+</section>
+
+<!-- LEVEL 10 -->
+<section class="sheet" id="L10">
+  <div><p class="band">Level 10 &middot; Applications</p><h2>Differential equations</h2></div>
+  <p class="lead">A differential equation involves a function and its derivatives. The order is the highest derivative present, and the degree is the power of that highest derivative once it is free of roots and fractions. Solving one means integrating, and integration constants give a family of solutions.</p>
+  <div class="sheetgrid">
+    <div class="card"><h3>Variable separable</h3>
+      <div class="row m">\frac{dy}{dx} = f(x)\,g(y) \Rightarrow \int \frac{dy}{g(y)} = \int f(x)\,dx</div></div>
+    <div class="card"><h3>Linear first order</h3>
+      <div class="row m">\frac{dy}{dx} + Py = Q, \quad I.F. = e^{\int P\,dx}</div>
+      <div class="row m">y \cdot (I.F.) = \int Q \cdot (I.F.)\,dx + C</div></div>
+  </div>
+  <div class="lab">
+    <h3>Slope field explorer</h3>
+    <p class="note" style="margin:0">Each short segment shows the slope the equation demands at that point. Click or drag on the field to start a solution curve there.</p>
+    <div class="ctl"><label>Equation <select id="l10sel"></select></label></div>
+    <canvas id="l10cv" class="cv tall" style="touch-action:none" role="img" aria-label="Slope field with a solution curve"></canvas>
+    <div class="info" id="l10info"></div>
+  </div>
+  <div class="ex">
+    <h3>Worked examples</h3>
+    <div class="steps">
+      <div class="step"><span class="k">Separable</span><span class="m">\frac{dy}{dx} = 2xy \Rightarrow \int \frac{dy}{y} = \int 2x\,dx \Rightarrow \ln|y| = x^2 + c \Rightarrow y = Ce^{x^2}</span></div>
+      <div class="step"><span class="k">Linear</span><span class="m">\frac{dy}{dx} + \frac{y}{x} = x^2: \; I.F. = e^{\ln x} = x</span></div>
+      <div class="step"><span class="k">Continue</span><span class="m">\frac{d}{dx}(xy) = x^3 \Rightarrow xy = \frac{x^4}{4} + C \Rightarrow y = \frac{x^3}{4} + \frac{C}{x}</span></div>
+    </div>
+  </div>
+  <div class="check"><h3>Check yourself</h3><div class="quiz" data-n="10"></div></div>
+</section>
+
+<!-- Reference -->
+<section class="sheet" id="sheet">
+  <div><p class="band">Reference</p><h2>Formula sheet</h2></div>
+  <div class="sheetgrid" id="refgrid"></div>
+</section>
+
+<footer>© All rights reserved dxshonly 2026</footer>
+</main> 
+
+<script>
+(function(){
+'use strict';
+const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
+const R=String.raw;
+const rnd=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+const pick=a=>a[rnd(0,a.length-1)];
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=rnd(0,i);[a[i],a[j]]=[a[j],a[i]]}return a};
+const gcd=(a,b)=>b?gcd(b,a%b):Math.abs(a);
+const fmt=v=>String(+v.toFixed(2)).replace('-','\u2212');
+const f4=v=>(Math.abs(v)<5e-5?0:v).toFixed(4).replace('-','\u2212');
+
+/* ---------- mini math markup ---------- */
+const SYM={int:'\u222B',pi:'\u03C0',infty:'\u221E',theta:'\u03B8',alpha:'\u03B1',beta:'\u03B2',cdot:'\u00B7',le:'\u2264',ge:'\u2265',ne:'\u2260',to:'\u2192',pm:'\u00B1',Rightarrow:'\u21D2',times:'\u00D7',approx:'\u2248',lt:'&lt;',gt:'&gt;',sum:'∑',Delta:'Δ',
+ sin:'sin',cos:'cos',tan:'tan',cot:'cot',sec:'sec',csc:'cosec',ln:'ln',log:'log',lim:'lim',Big:'',left:'',right:'',quad:'&emsp;',qquad:'&emsp;&emsp;',',':'\u2009',';':'\u2005'};
+function T(s){
+  s=String(s).replace(/\\u([0-9A-Fa-f]{4})/g,(m,h)=>String.fromCharCode(parseInt(h,16)));let prev;
+  do{prev=s;
+    s=s.replace(/\\frac\{([^{}]*)\}\{([^{}]*)\}/g,'<span class="fr"><span>$1</span><span>$2</span></span>');
+    s=s.replace(/\\sqrt\{([^{}]*)\}/g,'\u221A<span class="ov">$1</span>');
+    s=s.replace(/\^\{([^{}]*)\}/g,'<sup>$1</sup>');
+    s=s.replace(/_\{([^{}]*)\}/g,'<sub>$1</sub>');
+  }while(s!==prev);
+  s=s.replace(/\^([A-Za-z0-9])/g,'<sup>$1</sup>').replace(/_([A-Za-z0-9])/g,'<sub>$1</sub>');
+  s=s.replace(/\\intl\{([^{}]*)\}\{([^{}]*)\}/g,'<span class="il"><span class="hi">$2</span>\u222B<span class="lo">$1</span></span>');
+  s=s.replace(/\\ev\{([^{}]*)\}\{([^{}]*)\}\{([^{}]*)\}/g,'<span class="ev">[$1]<span class="lm"><span>$3</span><span>$2</span></span></span>');
+  s=s.replace(/\\([a-zA-Z]+|[,;])/g,(m,k)=>Object.prototype.hasOwnProperty.call(SYM,k)?SYM[k]:m);
+  return s.replace(/<sup>-/g,'<sup>\u2212').replace(/ - /g,' \u2212 ');
+}
+const M=s=>'<span class="m">'+T(s)+'</span>';
+// text with inline math between $...$
+function P(s){return String(s).split('$').map((seg,i)=>i%2?M(seg):seg).join('')}
+
+/* ---------- state ---------- */
+const LEVELS=['Antiderivatives','Basic formulas','Substitution','Standard forms','Partial fractions','By parts','Definite integrals','Properties','Area','Differential equations'];
+let state={done:{}};
+try{const s=JSON.parse(localStorage.getItem('integrationLab')||'null');if(s&&s.done)state=s}catch(e){}
+function save(){try{localStorage.setItem('integrationLab',JSON.stringify(state))}catch(e){}}
+function paint(){
+  const n=Object.keys(state.done).length;
+  $('#bar').style.width=(n*10)+'%';
+  $('#progt').textContent=n+' of 10 levels cleared';
+  $$('.chip[data-n]').forEach(c=>c.classList.toggle('done',!!state.done[c.dataset.n]));
+}
+function markDone(n){state.done[n]=1;save();paint()}
+const chips=$('#chips');
+LEVELS.forEach((nm,i)=>{
+  const b=document.createElement('button');b.type='button';b.className='chip';b.dataset.n=i+1;
+  b.innerHTML='<b>'+String(i+1).padStart(2,'0')+'</b>'+nm;
+  b.addEventListener('click',()=>$('#L'+(i+1)).scrollIntoView({block:'start'}));
+  chips.appendChild(b);
+});
+const rb=document.createElement('button');rb.type='button';rb.className='chip';rb.innerHTML='<b>\u2211</b>Formula sheet';
+rb.addEventListener('click',()=>$('#sheet').scrollIntoView({block:'start'}));chips.appendChild(rb);
+const io=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){
+  $$('.chip').forEach(c=>c.classList.remove('on'));
+  const id=e.target.id, c=id==='sheet'?chips.lastChild:chips.children[+id.slice(1)-1];
+  if(c){c.classList.add('on');const l=c.offsetLeft-chips.clientWidth/2+c.offsetWidth/2;chips.scrollTo({left:l})}
+}})},{rootMargin:'-35% 0px -60% 0px'});
+$$('.sheet').forEach(s=>io.observe(s));
+
+/* ---------- plotting helpers ---------- */
+const cssv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function mk(cv,view,eq){
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  const W=cv.clientWidth,H=cv.clientHeight;
+  if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(H*dpr)){cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr)}
+  const ctx=cv.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);
+  const pad={l:36,r:12,t:12,b:24};
+  const pw=Math.max(W-pad.l-pad.r,10),ph=Math.max(H-pad.t-pad.b,10);
+  let v={...view};
+  if(eq){const k=ph/pw*(v.x1-v.x0),cy=(v.y0+v.y1)/2;v.y0=cy-k/2;v.y1=cy+k/2}
+  const c={ink:cssv('--ink'),muted:cssv('--muted'),line:cssv('--line'),grid:cssv('--grid'),accent:cssv('--accent'),amber:cssv('--amber'),soft:cssv('--accent-soft'),asoft:cssv('--amber-soft'),panel:cssv('--panel'),good:cssv('--good')};
+  return {cv,ctx,W,H,pad,pw,ph,view:v,c,
+    sx:x=>pad.l+(x-v.x0)/(v.x1-v.x0)*pw, sy:y=>H-pad.b-(y-v.y0)/(v.y1-v.y0)*ph,
+    ix:px=>v.x0+(px-pad.l)/pw*(v.x1-v.x0), iy:py=>v.y0+(H-pad.b-py)/ph*(v.y1-v.y0)};
+}
+function niceStep(range,target){const raw=range/target,p=Math.pow(10,Math.floor(Math.log10(raw))),m=raw/p;return (m<1.5?1:m<3?2:m<7?5:10)*p}
+function axes(P){
+  const {ctx,W,H,sx,sy,view:v,pad,c}=P;
+  ctx.fillStyle=c.panel;ctx.fillRect(0,0,W,H);
+  ctx.lineWidth=1;ctx.font='11px "JetBrains Mono",monospace';
+  const xs=niceStep(v.x1-v.x0,8),ys=niceStep(v.y1-v.y0,6);
+  ctx.strokeStyle=c.grid;ctx.fillStyle=c.muted;ctx.textAlign='center';
+  for(let i=Math.ceil(v.x0/xs);i*xs<=v.x1+1e-9;i++){const x=i*xs,X=sx(x);ctx.beginPath();ctx.moveTo(X,pad.t);ctx.lineTo(X,H-pad.b);ctx.stroke();if(i!==0)ctx.fillText(fmt(x),X,H-pad.b+15)}
+  ctx.textAlign='right';
+  for(let i=Math.ceil(v.y0/ys);i*ys<=v.y1+1e-9;i++){const y=i*ys,Y=sy(y);ctx.beginPath();ctx.moveTo(pad.l,Y);ctx.lineTo(W-pad.r,Y);ctx.stroke();if(i!==0)ctx.fillText(fmt(y),pad.l-5,Y+4)}
+  ctx.strokeStyle=c.muted;ctx.lineWidth=1.5;
+  if(v.y0<=0&&v.y1>=0){ctx.beginPath();ctx.moveTo(pad.l,sy(0));ctx.lineTo(W-pad.r,sy(0));ctx.stroke()}
+  if(v.x0<=0&&v.x1>=0){ctx.beginPath();ctx.moveTo(sx(0),pad.t);ctx.lineTo(sx(0),H-pad.b);ctx.stroke()}
+}
+function clipOn(P){const {ctx,pad,pw,ph}=P;ctx.save();ctx.beginPath();ctx.rect(pad.l,pad.t,pw,ph);ctx.clip()}
+function clipOff(P){P.ctx.restore()}
+function curve(P,f,a,b,col,w){
+  const {ctx,sx,sy}=P;ctx.strokeStyle=col;ctx.lineWidth=w||2;ctx.beginPath();let pen=false;const N=500;
+  for(let i=0;i<=N;i++){const x=a+(b-a)*i/N,y=f(x);if(!isFinite(y)){pen=false;continue}const X=sx(x),Y=sy(y);if(!pen){ctx.moveTo(X,Y);pen=true}else ctx.lineTo(X,Y)}
+  ctx.stroke();
+}
+function fillBetween(P,top,bot,a,b,col){
+  const {ctx,sx,sy}=P;const N=240;ctx.fillStyle=col;ctx.beginPath();
+  for(let i=0;i<=N;i++){const x=a+(b-a)*i/N;const X=sx(x),Y=sy(top(x));i?ctx.lineTo(X,Y):ctx.moveTo(X,Y)}
+  for(let i=N;i>=0;i--){const x=a+(b-a)*i/N;ctx.lineTo(sx(x),sy(bot(x)))}
+  ctx.closePath();ctx.fill();
+}
+function seg(P,x1,y1,x2,y2,col,w,dash){const {ctx,sx,sy}=P;ctx.save();ctx.strokeStyle=col;ctx.lineWidth=w||2;if(dash)ctx.setLineDash(dash);ctx.beginPath();ctx.moveTo(sx(x1),sy(y1));ctx.lineTo(sx(x2),sy(y2));ctx.stroke();ctx.restore()}
+function dot(P,x,y,col,r){const {ctx,sx,sy}=P;ctx.fillStyle=col;ctx.beginPath();ctx.arc(sx(x),sy(y),r||5,0,Math.PI*2);ctx.fill()}
+function tag(P,t,x,y,col){const {ctx,sx,sy}=P;ctx.fillStyle=col;ctx.font='600 13px "Source Sans 3",sans-serif';ctx.textAlign='left';ctx.fillText(t,sx(x),sy(y))}
+function simpson(f,a,b,n){n=n||400;const h=(b-a)/n;let s=f(a)+f(b);for(let i=1;i<n;i++)s+=f(a+i*h)*(i%2?4:2);return s*h/3}
+const redraws=[];
+function reg(fn){redraws.push(fn);try{fn()}catch(e){console.error(e)}}
+let raf=0;function redrawAll(){cancelAnimationFrame(raf);raf=requestAnimationFrame(()=>redraws.forEach(f=>{try{f()}catch(e){console.error(e)}}))}
+addEventListener('resize',redrawAll);
+try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',redrawAll)}catch(e){}
+new MutationObserver(redrawAll).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(redrawAll);
+const on=(ids,fn)=>ids.forEach(i=>$('#'+i).addEventListener('input',fn));
+const opt=(sel,arr)=>{sel.innerHTML=arr.map((t,i)=>'<option value="'+i+'">'+t+'</option>').join('')};
+
+/* ---------- quiz engine ---------- */
+const Q={
+1:[
+ {q:R`What is $\int 3x^2\,dx$?`,o:[R`x^3 + C`,R`6x + C`,R`x^3`,R`3x^3 + C`],w:R`Raise the power by one and divide by it: $3x^3/3 = x^3$. Differentiate $x^3$ and you get $3x^2$, so it checks out. Without + C the answer is incomplete.`},
+ {q:`Why do we always add + C to an indefinite integral?`,o:[`~A constant has zero derivative, so many functions share the same slope function.`,`~Because the integral of any function is zero at x = 0.`,`~Because C stands for the area under the curve.`,`~Only to make the answer look complete.`],w:R`Every curve in the family $F(x) + C$ has the same derivative, so integration cannot tell them apart without extra information.`},
+ {q:R`$F'(x) = 2x$ and $F(0) = 2$. Find $F(x)$.`,o:[R`x^2 + 2`,R`x^2`,R`2x^2 + 2`,R`x^2 + 2x`],w:R`$F(x) = x^2 + C$ and $F(0) = C = 2$.`}],
+2:[
+ {q:R`Evaluate $\int (2x + \frac{1}{x})\,dx$.`,o:[R`x^2 + \ln|x| + C`,R`x^2 - \frac{1}{x^2} + C`,R`2x^2 + \ln|x| + C`,R`x^2 + \frac{1}{2x^2} + C`],w:R`Integrate term by term: $2x \to x^2$ and $1/x \to \ln|x|$.`},
+ {q:R`$\int \sec^2 x\,dx = $`,o:[R`\tan x + C`,R`\sec x \tan x + C`,R`-\cot x + C`,R`\sec x + C`],w:R`$\frac{d}{dx}\tan x = \sec^2 x$.`},
+ {q:R`$\int 2^x\,dx = $`,o:[R`\frac{2^x}{\ln 2} + C`,R`2^x + C`,R`x\,2^{x-1} + C`,R`2^x \ln 2 + C`],w:R`The formula is $\int a^x dx = a^x/\ln a$. Differentiating $2^x/\ln 2$ gives back $2^x$.`}],
+3:[
+ {q:R`For $\int x e^{x^2}\,dx$, the best substitution is`,o:[R`u = x^2`,R`u = x`,R`u = e^x`,R`u = x e^{x^2}`],w:R`With $u = x^2$ we get $du = 2x\,dx$, and the leftover $x\,dx$ is exactly $du/2$.`},
+ {q:R`$\int \cot x\,dx = $`,o:[R`\ln|\sin x| + C`,R`-\ln|\sin x| + C`,R`\ln|\cos x| + C`,R`\ln|\sec x| + C`],w:R`Write $\cot x = \cos x/\sin x$ and let $u = \sin x$. The top is the derivative of the bottom.`},
+ {q:R`$\int \frac{\ln x}{x}\,dx = $`,o:[R`\frac{(\ln x)^2}{2} + C`,R`\ln(\ln x) + C`,R`\frac{1}{x^2} + C`,R`(\ln x)^2 + C`],w:R`Let $u = \ln x$, so $du = dx/x$ and the integral becomes $\int u\,du$.`}],
+4:[
+ {q:R`$\int \frac{dx}{x^2 + 9} = $`,o:[R`\frac{1}{3}\tan^{-1}\frac{x}{3} + C`,R`\tan^{-1}\frac{x}{3} + C`,R`3\tan^{-1}\frac{x}{3} + C`,R`\frac{1}{6}\ln|x^2+9| + C`],w:R`Use $\int \frac{dx}{x^2+a^2} = \frac{1}{a}\tan^{-1}\frac{x}{a}$ with $a = 3$.`},
+ {q:R`$\int \frac{dx}{\sqrt{16 - x^2}} = $`,o:[R`\sin^{-1}\frac{x}{4} + C`,R`\frac{1}{4}\sin^{-1}\frac{x}{4} + C`,R`\tan^{-1}\frac{x}{4} + C`,R`\ln|x + \sqrt{16 - x^2}| + C`],w:R`With $a = 4$ the formula is $\sin^{-1}(x/a)$. There is no extra $1/a$ in this one.`},
+ {q:R`$\int \frac{dx}{x^2 - 1} = $`,o:[R`\frac{1}{2}\ln\Big|\frac{x-1}{x+1}\Big| + C`,R`\frac{1}{2}\ln\Big|\frac{x+1}{x-1}\Big| + C`,R`\tan^{-1}x + C`,R`\ln|x^2 - 1| + C`],w:R`Use $\frac{1}{2a}\ln\big|\frac{x-a}{x+a}\big|$ with $a = 1$. Partial fractions give the same result.`}],
+5:[
+ {q:R`The correct split of $\frac{1}{(x-1)(x-2)}$ is`,o:[R`\frac{A}{x-1} + \frac{B}{x-2}`,R`\frac{A}{(x-1)(x-2)}`,R`\frac{Ax+B}{x-1} + \frac{C}{x-2}`,R`\frac{A}{x-1} + \frac{B}{(x-1)^2}`],w:R`One fraction per distinct linear factor, each with a constant numerator.`},
+ {q:R`$\int \frac{dx}{(x-1)(x-2)} = $`,o:[R`\ln\Big|\frac{x-2}{x-1}\Big| + C`,R`\ln\Big|\frac{x-1}{x-2}\Big| + C`,R`\ln|(x-1)(x-2)| + C`,R`\frac{1}{x-2} - \frac{1}{x-1} + C`],w:R`Cover-up gives $A = -1$ at $x = 1$ and $B = 1$ at $x = 2$. So the integral is $-\ln|x-1| + \ln|x-2|$.`},
+ {q:`What must you do before partial fractions when the numerator has degree greater than or equal to the denominator?`,o:[`~Divide first, then split the proper fraction.`,`~Nothing, split it directly.`,`~Differentiate the numerator.`,`~Substitute u = x.`],w:`Partial fractions only work on proper fractions. Long division leaves a polynomial plus a proper fraction.`}],
+6:[
+ {q:R`In ILATE, which should usually be u in $\int x\sin x\,dx$?`,o:[R`x`,R`\sin x`,`~Both work equally well`,`~Neither`],w:R`Algebraic comes before Trigonometric in ILATE, and differentiating $x$ gives 1, which simplifies the problem.`},
+ {q:R`$\int x e^x\,dx = $`,o:[R`(x - 1)e^x + C`,R`(x + 1)e^x + C`,R`\frac{x^2}{2}e^x + C`,R`e^x + C`],w:R`$u = x$, $dv = e^x dx$ gives $x e^x - \int e^x dx = x e^x - e^x$.`},
+ {q:R`$\int e^x(\tan x + \sec^2 x)\,dx = $`,o:[R`e^x \tan x + C`,R`e^x \sec^2 x + C`,R`e^x \sec x + C`,R`e^x + \tan x + C`],w:R`This has the form $e^x[f + f']$ with $f = \tan x$ and $f' = \sec^2 x$.`}],
+7:[
+ {q:R`$\int_0^{\pi} \sin x\,dx = $`,o:[R`2`,R`0`,R`1`,R`\pi`],w:R`$[-\cos x]_0^{\pi} = -(-1) - (-1) = 2$.`},
+ {q:R`$\int_1^e \frac{dx}{x} = $`,o:[R`1`,R`e`,R`e - 1`,R`0`],w:R`$[\ln x]_1^e = \ln e - \ln 1 = 1$.`},
+ {q:R`In $\int_0^1 2x e^{x^2}dx$ with $u = x^2$, the new limits are`,o:[R`0 to 1`,R`0 to 2`,R`1 to e`,R`0 to e`],w:R`$u(0) = 0$ and $u(1) = 1$.`}],
+8:[
+ {q:R`$\int_{-2}^{2} x^3 \cos x\,dx = $`,o:[R`0`,R`2`,R`4`,R`\cos 2`],w:R`$x^3$ is odd and $\cos x$ is even, so the product is odd. Odd functions integrate to 0 over $[-a, a]$.`},
+ {q:R`$\int_0^{\pi/2}\frac{\cos x}{\sin x + \cos x}\,dx = $`,o:[R`\frac{\pi}{4}`,R`\frac{\pi}{2}`,R`0`,R`1`],w:R`The King property gives the same value as for $\frac{\sin x}{\sin x + \cos x}$. They add to $\pi/2$, so each is $\pi/4$.`},
+ {q:R`$\int_{-1}^{1}(x^2 + 1)\,dx = $`,o:[R`\frac{8}{3}`,R`\frac{4}{3}`,R`0`,R`2`],w:R`The function is even: $2\int_0^1(x^2 + 1)dx = 2(\frac{1}{3} + 1) = \frac{8}{3}$.`}],
+9:[
+ {q:R`Area bounded by $y = x^2$, the x-axis and $x = 3$ is`,o:[R`9`,R`27`,R`3`,R`\frac{9}{2}`],w:R`$\int_0^3 x^2 dx = [x^3/3]_0^3 = 9$.`},
+ {q:R`Area of the ellipse $\frac{x^2}{25} + \frac{y^2}{16} = 1$ is`,o:[R`20\pi`,R`40\pi`,R`10\pi`,R`9\pi`],w:R`Area $= \pi a b = \pi \cdot 5 \cdot 4 = 20\pi$.`},
+ {q:R`Area enclosed by $y^2 = 4x$ and its latus rectum $x = 1$ is`,o:[R`\frac{8}{3}`,R`\frac{4}{3}`,R`\frac{16}{3}`,R`2`],w:R`Here $a = 1$ and the area is $8a^2/3 = 8/3$.`}],
+10:[
+ {q:R`Order and degree of $(\frac{d^2y}{dx^2})^3 + (\frac{dy}{dx})^4 + y = 0$ are`,o:[R`order 2, degree 3`,R`order 3, degree 2`,R`order 2, degree 4`,R`order 4, degree 3`],w:R`The highest derivative is the second, so the order is 2. It is raised to the power 3, so the degree is 3.`},
+ {q:R`Integrating factor of $\frac{dy}{dx} + \frac{2}{x}y = x^2$ is`,o:[R`x^2`,R`2x`,R`e^{2x}`,R`\frac{1}{x^2}`],w:R`$e^{\int 2/x\,dx} = e^{2\ln x} = x^2$.`},
+ {q:R`Solution of $\frac{dy}{dx} = \frac{y}{x}$ is`,o:[R`y = Cx`,R`y = x + C`,R`y = Ce^x`,R`y = C/x`],w:R`Separate: $\int dy/y = \int dx/x$, so $\ln|y| = \ln|x| + c$ and $y = Cx$.`}]
+};
+function mountQuiz(el){
+  const n=+el.dataset.n,qs=Q[n];let got=0,ans=0;el.innerHTML='';
+  const foot=document.createElement('div');foot.className='qfoot';
+  qs.forEach((q,qi)=>{
+    const box=document.createElement('div');box.className='q';
+    box.innerHTML='<p class="qt">'+(qi+1)+'. '+P(q.q)+'</p><div class="opts"></div><p class="why" hidden>'+P(q.w)+'</p>';
+    const wrap=box.querySelector('.opts'),btns=[];
+    shuffle(q.o.map((t,i)=>i)).forEach(i=>{
+      const t=q.o[i],b=document.createElement('button');b.type='button';b.className='opt';b._i=i;
+      b.innerHTML=t[0]==='~'?P(t.slice(1)):M(t);
+      b.addEventListener('click',()=>{
+        if(box.dataset.done)return;box.dataset.done=1;ans++;
+        const ok=i===0;if(ok)got++;b.classList.add(ok?'ok':'no');
+        btns.find(x=>x._i===0).classList.add('ok');
+        box.querySelector('.why').hidden=false;
+        if(ans===qs.length){
+          foot.innerHTML='<span>'+got+' of '+qs.length+' correct.'+(got===qs.length?' Level cleared.':'')+'</span><button class="btn ghost" type="button">Try again</button>';
+          foot.querySelector('button').onclick=()=>mountQuiz(el);
+          if(got===qs.length)markDone(n);
+        }
+      });
+      btns.push(b);wrap.appendChild(b);
+    });
+    el.appendChild(box);
+  });
+  el.appendChild(foot);
+}
+$$('.quiz').forEach(mountQuiz);
+$('#reset').addEventListener('click',()=>{state={done:{}};save();paint();$$('.quiz').forEach(mountQuiz)});
+
+/* static math */
+$$('.m').forEach(e=>{e.innerHTML=T(e.textContent)});
+
+/* ---------- Level 1 ---------- */
+(function(){
+  const F=[
+   {t:'f(x) = 2x',f:x=>2*x,G:x=>x*x,Gt:R`x^2`,v:{x0:-3,x1:3,y0:-5,y1:9}},
+   {t:'f(x) = cos x',f:Math.cos,G:Math.sin,Gt:R`\sin x`,v:{x0:-6.3,x1:6.3,y0:-5,y1:5}},
+   {t:'f(x) = 3x\u00B2',f:x=>3*x*x,G:x=>x*x*x,Gt:R`x^3`,v:{x0:-2.5,x1:2.5,y0:-12,y1:12}},
+   {t:'f(x) = e\u02E3',f:Math.exp,G:Math.exp,Gt:R`e^x`,v:{x0:-3,x1:3,y0:-5,y1:12}}];
+  const sel=$('#l1f'),cs=$('#l1c'),xs=$('#l1x'),fam=$('#l1fam'),cv=$('#l1cv');
+  opt(sel,F.map(k=>k.t));
+  function draw(){
+    const k=F[sel.value],C=+cs.value,x0=+xs.value;
+    $('#l1co').textContent=fmt(C);$('#l1xo').textContent=fmt(x0);
+    const P=mk(cv,k.v);axes(P);clipOn(P);
+    if(fam.checked){P.ctx.globalAlpha=.4;for(let c=-3;c<=3;c+=1)if(c!==C)curve(P,x=>k.G(x)+c,k.v.x0,k.v.x1,P.c.muted,1.2);P.ctx.globalAlpha=1}
+    curve(P,x=>k.G(x)+C,k.v.x0,k.v.x1,P.c.accent,3);
+    const y0=k.G(x0)+C,m=k.f(x0);
+    seg(P,x0-1,y0-m,x0+1,y0+m,P.c.amber,2.5);dot(P,x0,y0,P.c.amber,5.5);
+    clipOff(P);
+    $('#l1info').innerHTML='<p>'+M(R`\int f(x)\,dx = ${k.Gt} + C`)+' with C = '+fmt(C)+'</p><p>At x = '+fmt(x0)+' the slope is f(x) = <b>'+fmt(m)+'</b>. Change C and the curve moves, but this slope stays put.</p>';
+  }
+  sel.addEventListener('input',()=>{const k=F[sel.value];xs.min=k.v.x0+.5;xs.max=k.v.x1-.5;xs.value=Math.min(Math.max(1,xs.min),xs.max);draw()});
+  on(['l1c','l1x','l1fam'],draw);
+  xs.min=-2;xs.max=2;reg(draw);
+})();
+
+/* ---------- Level 2 ---------- */
+const BASIC=[
+ [R`\int x^n\,dx`,R`\frac{x^{n+1}}{n+1} + C \quad (n \ne -1)`,R`\frac{d}{dx}\Big(\frac{x^{n+1}}{n+1}\Big) = x^n`],
+ [R`\int \frac{1}{x}\,dx`,R`\ln|x| + C`,R`\frac{d}{dx}\ln|x| = \frac{1}{x}`],
+ [R`\int e^x\,dx`,R`e^x + C`,R`\frac{d}{dx}e^x = e^x`],
+ [R`\int a^x\,dx`,R`\frac{a^x}{\ln a} + C`,R`\frac{d}{dx}\frac{a^x}{\ln a} = \frac{a^x \ln a}{\ln a} = a^x`],
+ [R`\int \sin x\,dx`,R`\u2212\cos x + C`.replace('\\u2212','\u2212'),R`\frac{d}{dx}(\u2212\cos x) = \sin x`.replace('\\u2212','\u2212')],
+ [R`\int \cos x\,dx`,R`\sin x + C`,R`\frac{d}{dx}\sin x = \cos x`],
+ [R`\int \sec^2 x\,dx`,R`\tan x + C`,R`\frac{d}{dx}\tan x = \sec^2 x`],
+ [R`\int \csc^2 x\,dx`,'\u2212'+R`\cot x + C`,R`\frac{d}{dx}(\u2212\cot x) = \csc^2 x`.replace('\\u2212','\u2212')],
+ [R`\int \sec x \tan x\,dx`,R`\sec x + C`,R`\frac{d}{dx}\sec x = \sec x \tan x`],
+ [R`\int \csc x \cot x\,dx`,'\u2212'+R`\csc x + C`,R`\frac{d}{dx}(\u2212\csc x) = \csc x \cot x`.replace('\\u2212','\u2212')]];
+const STD=[
+ [R`\int \frac{dx}{x^2 - a^2}`,R`\frac{1}{2a}\ln\Big|\frac{x-a}{x+a}\Big| + C`],
+ [R`\int \frac{dx}{a^2 - x^2}`,R`\frac{1}{2a}\ln\Big|\frac{a+x}{a-x}\Big| + C`],
+ [R`\int \frac{dx}{x^2 + a^2}`,R`\frac{1}{a}\tan^{-1}\frac{x}{a} + C`],
+ [R`\int \frac{dx}{\sqrt{x^2 - a^2}}`,R`\ln|x + \sqrt{x^2 - a^2}| + C`],
+ [R`\int \frac{dx}{\sqrt{a^2 - x^2}}`,R`\sin^{-1}\frac{x}{a} + C`],
+ [R`\int \frac{dx}{\sqrt{x^2 + a^2}}`,R`\ln|x + \sqrt{x^2 + a^2}| + C`],
+ [R`\int \sqrt{a^2 - x^2}\,dx`,R`\frac{x}{2}\sqrt{a^2 - x^2} + \frac{a^2}{2}\sin^{-1}\frac{x}{a} + C`]];
+(function(){
+  const box=$('#basics');
+  BASIC.forEach(r=>{
+    const row=document.createElement('div');row.className='frow';
+    row.innerHTML='<span class="m">'+T(r[0])+'</span><span class="m">= '+T(r[1])+'</span><button class="btn ghost small" type="button">Check</button>';
+    const chk=document.createElement('div');chk.className='chk m';chk.hidden=true;chk.innerHTML='Differentiate the answer: '+T(r[2]);row.appendChild(chk);
+    row.querySelector('button').addEventListener('click',()=>{chk.hidden=!chk.hidden});
+    box.appendChild(row);
+  });
+  const sb=$('#stdforms');
+  STD.forEach(r=>{const row=document.createElement('div');row.className='frow';row.style.gridTemplateColumns='1fr 1.4fr';row.innerHTML='<span class="m">'+T(r[0])+'</span><span class="m">= '+T(r[1])+'</span>';sb.appendChild(row)});
+
+  // drill
+  const term=(n,d,body)=>{const g=gcd(n,d);n/=g;d/=g;return (d===1?(n===1?'':String(n)):R`\frac{${n}}{${d}}`)+body};
+  const pw=e=>e===1?'x':R`x^{${e}}`;
+  let locked=false;
+  function next(){
+    locked=false;$('#drillMsg').textContent='';$('#drillMsg').className='msg';
+    const k=pick([2,3,4,5,6,8,10,12]),n=rnd(2,5);
+    $('#drillQ').innerHTML=T(R`\int ${k}x^{${n}}\,dx`);
+    const right=term(k,n+1,pw(n+1))+' + C';
+    const wrongs=[term(k,n,pw(n+1))+' + C',term(k,n+1,pw(n))+' + C',term(k*n,1,pw(n-1))+' + C'];
+    const o=$('#drillO');o.innerHTML='';
+    shuffle([right,...wrongs]).forEach(t=>{
+      const b=document.createElement('button');b.type='button';b.className='opt';b.innerHTML=M(t);
+      b.addEventListener('click',()=>{
+        if(locked)return;locked=true;
+        const ok=t===right;b.classList.add(ok?'ok':'no');
+        Array.from(o.children).forEach(x=>{if(x._t===right)x.classList.add('ok')});
+        const m=$('#drillMsg');m.className='msg '+(ok?'ok':'no');
+        m.innerHTML=ok?'Correct. Raise the power by one and divide by the new power.':'Not quite. Raise the power by one, then divide by that new power.';
+      });
+      b._t=t;o.appendChild(b);
+    });
+  }
+  $('#drillNew').addEventListener('click',next);next();
+})();
+
+/* ---------- Level 3 ---------- */
+(function(){
+  const E=[
+   {i:R`\int 2x\cos(x^2)\,dx`,s:[['Spot the pair',R`The inside x^2 has derivative 2x, and 2x is already outside.`],['Substitute',R`u = x^2, \; du = 2x\,dx`],['Rewrite',R`\int \cos u\,du`],['Integrate',R`\sin u + C`],['Back-substitute',R`\sin(x^2) + C`]]},
+   {i:R`\int \frac{x}{x^2+1}\,dx`,s:[['Choose u',R`u = x^2 + 1`],['Differentiate',R`du = 2x\,dx \Rightarrow x\,dx = \frac{du}{2}`],['Rewrite',R`\frac{1}{2}\int \frac{du}{u}`],['Integrate',R`\frac{1}{2}\ln|u| + C`],['Back-substitute',R`\frac{1}{2}\ln(x^2+1) + C`]]},
+   {i:R`\int e^{3x+1}\,dx`,s:[['Choose u',R`u = 3x + 1`],['Differentiate',R`du = 3\,dx \Rightarrow dx = \frac{du}{3}`],['Rewrite',R`\frac{1}{3}\int e^u\,du`],['Integrate',R`\frac{1}{3}e^u + C`],['Back-substitute',R`\frac{1}{3}e^{3x+1} + C`]]},
+   {i:R`\int \tan x\,dx`,s:[['Rewrite',R`\int \frac{\sin x}{\cos x}\,dx`],['Choose u',R`u = \cos x`],['Differentiate',R`du = -\sin x\,dx`],['Rewrite',R`-\int \frac{du}{u}`],['Integrate',R`-\ln|u| + C`],['Back-substitute',R`-\ln|\cos x| + C = \ln|\sec x| + C`]]},
+   {i:R`\int \sin^3 x \cos x\,dx`,s:[['Choose u',R`u = \sin x`],['Differentiate',R`du = \cos x\,dx`],['Rewrite',R`\int u^3\,du`],['Integrate',R`\frac{u^4}{4} + C`],['Back-substitute',R`\frac{\sin^4 x}{4} + C`]]},
+   {i:R`\int \cos^3 x\,dx`,s:[['Split a power',R`\cos^3 x = \cos^2 x \cdot \cos x = (1 - \sin^2 x)\cos x`],['Choose u',R`u = \sin x, \; du = \cos x\,dx`],['Rewrite',R`\int (1 - u^2)\,du`],['Integrate',R`u - \frac{u^3}{3} + C`],['Back-substitute',R`\sin x - \frac{\sin^3 x}{3} + C`]]}];
+  const sel=$('#l3sel');let k=0;
+  const labels=['2x cos(x\u00B2)','x / (x\u00B2 + 1)','e^(3x+1)','tan x','sin\u00B3x cos x','cos\u00B3x'];
+  opt(sel,labels);
+  function show(){
+    const e=E[+sel.value];$('#l3int').innerHTML=T(e.i);
+    $('#l3steps').innerHTML=e.s.slice(0,k).map(s=>'<div class="step"><span class="k">'+s[0]+'</span><span class="m">'+T(s[1])+'</span></div>').join('');
+    $('#l3next').disabled=k>=e.s.length;
+  }
+  sel.addEventListener('input',()=>{k=0;show()});
+  $('#l3next').addEventListener('click',()=>{k++;show()});
+  $('#l3reset').addEventListener('click',()=>{k=0;show()});
+  show();
+})();
+
+/* ---------- Level 4 ---------- */
+(function(){
+  const as=$('#l4a'),cv=$('#l4cv');
+  function draw(){
+    const a=+as.value;$('#l4ao').textContent=a.toFixed(1);
+    const P=mk(cv,{x0:-8,x1:8,y0:-3.6,y1:4.4});axes(P);clipOn(P);
+    const lim=Math.PI/(2*a);
+    seg(P,-8,lim,8,lim,P.c.muted,1,[5,4]);seg(P,-8,-lim,8,-lim,P.c.muted,1,[5,4]);
+    curve(P,x=>1/(x*x+a*a),-8,8,P.c.accent,3);
+    curve(P,x=>Math.atan(x/a)/a,-8,8,P.c.amber,3);
+    clipOff(P);
+    $('#l4info').innerHTML='<p>F levels off at '+M(R`\pm\frac{\pi}{2a} = \pm ${lim.toFixed(3)}`)+'.</p><p>So the total signed area under the bell, '+M(R`\intl{-\infty}{\infty}\frac{dx}{x^2+a^2}`)+', equals '+M(R`\frac{\pi}{a} = ${(Math.PI/a).toFixed(3)}`)+'. A narrower bell is taller and its area grows.</p>';
+  }
+  on(['l4a'],draw);reg(draw);
+})();
+
+/* ---------- Level 5 ---------- */
+(function(){
+  const rat=(n,d)=>{if(d<0){n=-n;d=-d}const g=gcd(n,d)||1;return [n/g,d/g]};
+  const lin=a=>a===0?'x':a>0?'x - '+a:'x + '+(-a);
+  const coef=(r)=>{const n=Math.abs(r[0]),d=r[1];return d===1?String(n):R`\frac{${n}}{${d}}`};
+  const st=r=>(r[0]<0?'−':'')+coef(r);
+  const sgn=(r,first)=>r[0]<0?(first?'\u2212':' \u2212 '):(first?'':' + ');
+  const num=(p,q)=>{let s='';if(p!==0){s+=(p===1?'':p===-1?'\u2212':p)+'x'}if(q!==0){s+=(s?(q>0?' + '+q:' \u2212 '+(-q)):String(q).replace('-','\u2212'))}return s||'0'};
+  function render(){
+    const p=+$('#l5p').value,q=+$('#l5q').value,a=+$('#l5a').value,b=+$('#l5b').value,el=$('#l5info');
+    if([p,q,a,b].some(v=>!Number.isInteger(v))){el.innerHTML='<p>Use whole numbers for p, q, a and b.</p>';return}
+    if(a===b){el.innerHTML='<p>a and b must be different. A repeated factor needs the other form from the table above.</p>';return}
+    const A=rat(p*a+q,a-b),B=rat(p*b+q,b-a);
+    const frac=(r,l)=>{const d=r[1];return R`\frac{${Math.abs(r[0])}}{${d===1?'':d}(${l})}`};
+    const lhs=R`\frac{${num(p,q)}}{(${lin(a)})(${lin(b)})}`;
+    const rhs=(A[0]===0?'':sgn(A,true)+frac(A,lin(a)))+(B[0]===0?'':(A[0]===0?sgn(B,true):sgn(B,false))+frac(B,lin(b)));
+    const integ=(A[0]===0?'':sgn(A,true)+(Math.abs(A[0])===A[1]?'':coef(A))+R`\ln|${lin(a)}|`)+(B[0]===0?'':(A[0]===0?sgn(B,true):sgn(B,false))+(Math.abs(B[0])===B[1]?'':coef(B))+R`\ln|${lin(b)}|`)+' + C';
+    const xc=Math.max(a,b)+2.5,L=(p*xc+q)/((xc-a)*(xc-b)),Rr=A[0]/A[1]/(xc-a)+B[0]/B[1]/(xc-b);
+    el.innerHTML=
+      '<p><b>Split:</b> '+M(lhs+' = '+(rhs||'0'))+'</p>'+
+      '<p><b>Cover-up for A:</b> put x = '+a+' in the rest: '+M(R`A = \frac{${p}(${a}) + ${q}}{${a} - (${b})} = ${st(A)}`)+'</p>'+
+      '<p><b>Cover-up for B:</b> put x = '+b+': '+M(R`B = \frac{${p}(${b}) + ${q}}{${b} - (${a})} = ${st(B)}`)+'</p>'+
+      '<p><b>Integral:</b> '+M(R`\int ${lhs}\,dx = ${integ}`)+'</p>'+
+      '<p class="note">Check at x = '+xc+': left side '+L.toFixed(5)+', right side '+Rr.toFixed(5)+'.</p>';
+  }
+  on(['l5p','l5q','l5a','l5b'],render);render();
+})();
+
+/* ---------- Level 6 ---------- */
+(function(){
+  const E=[
+   {i:R`\int x e^x\,dx`,o:[R`x`,R`e^x`],c:0,w:'x is Algebraic and e^x is Exponential. A comes before E in ILATE, and x simplifies to 1 when differentiated.',
+    s:[['Pick',R`u = x, \; dv = e^x\,dx`],['Differentiate, integrate',R`du = dx, \; v = e^x`],['Apply',R`x e^x - \int e^x\,dx`],['Result',R`x e^x - e^x + C = e^x(x - 1) + C`]]},
+   {i:R`\int x\cos x\,dx`,o:[R`x`,R`\cos x`],c:0,w:'Algebraic beats Trigonometric. Differentiating x gives 1, while cos x just cycles.',
+    s:[['Pick',R`u = x, \; dv = \cos x\,dx`],['Differentiate, integrate',R`du = dx, \; v = \sin x`],['Apply',R`x\sin x - \int \sin x\,dx`],['Result',R`x\sin x + \cos x + C`]]},
+   {i:R`\int \ln x\,dx`,o:[R`\ln x`,R`1`],c:0,w:'There is no obvious v for ln x, but its derivative 1/x is easy. Write the integrand as (ln x) times 1.',
+    s:[['Pick',R`u = \ln x, \; dv = dx`],['Differentiate, integrate',R`du = \frac{dx}{x}, \; v = x`],['Apply',R`x\ln x - \int x\cdot\frac{1}{x}\,dx = x\ln x - \int dx`],['Result',R`x\ln x - x + C`]]},
+   {i:R`\int x^2 e^x\,dx`,o:[R`x^2`,R`e^x`],c:0,w:'Algebraic first. You will need parts twice, because x^2 takes two differentiations to reach a constant.',
+    s:[['Round 1',R`u = x^2, \; dv = e^x\,dx \Rightarrow x^2 e^x - 2\int x e^x\,dx`],['Round 2',R`\int x e^x\,dx = e^x(x - 1)`],['Combine',R`x^2 e^x - 2e^x(x - 1)`],['Result',R`e^x(x^2 - 2x + 2) + C`]]},
+   {i:R`\int \tan^{-1}x\,dx`,o:[R`\tan^{-1}x`,R`1`],c:0,w:'Inverse trig comes first in ILATE. Its derivative 1/(1+x^2) is algebraic, which is easier to integrate.',
+    s:[['Pick',R`u = \tan^{-1}x, \; dv = dx`],['Differentiate, integrate',R`du = \frac{dx}{1+x^2}, \; v = x`],['Apply',R`x\tan^{-1}x - \int \frac{x}{1+x^2}\,dx`],['Substitute t = 1 + x\u00B2',R`\int \frac{x}{1+x^2}\,dx = \frac{1}{2}\ln(1+x^2)`],['Result',R`x\tan^{-1}x - \frac{1}{2}\ln(1+x^2) + C`]]},
+   {i:R`\int e^x\sin x\,dx`,o:[R`\sin x`,R`e^x`],c:-1,w:'Either choice works here. The rule is to keep the same choice in both rounds, then solve for the integral.',
+    s:[['Round 1',R`u = \sin x \Rightarrow I = e^x\sin x - \int e^x\cos x\,dx`],['Round 2',R`\int e^x\cos x\,dx = e^x\cos x + I`],['Combine',R`I = e^x\sin x - e^x\cos x - I`],['Solve',R`I = \frac{e^x(\sin x - \cos x)}{2} + C`]]}];
+  const sel=$('#l6sel');opt(sel,['x e^x','x cos x','ln x','x\u00B2 e^x','tan\u207B\u00B9 x','e^x sin x']);
+  function show(){
+    const e=E[+sel.value];$('#l6int').innerHTML=T(e.i);$('#l6steps').innerHTML='';$('#l6fb').innerHTML='<p>Which function should be u?</p>';
+    const pk=$('#l6pick');pk.innerHTML='';
+    e.o.forEach((t,i)=>{
+      const b=document.createElement('button');b.type='button';b.className='opt';b.innerHTML=M(t);
+      b.addEventListener('click',()=>{
+        const ok=e.c<0||i===e.c;
+        Array.from(pk.children).forEach((x,j)=>{x.disabled=true;if(e.c<0||j===e.c)x.classList.add('ok')});
+        if(!ok)b.classList.add('no');
+        $('#l6fb').innerHTML='<p class="msg '+(ok?'ok':'no')+'">'+(ok?'Good choice.':'Not that one.')+'</p><p>'+T(e.w)+'</p>';
+        $('#l6steps').innerHTML=e.s.map(s=>'<div class="step"><span class="k">'+s[0]+'</span><span class="m">'+T(s[1])+'</span></div>').join('');
+      });
+      pk.appendChild(b);
+    });
+  }
+  sel.addEventListener('input',show);show();
+})();
+
+/* ---------- Level 7 ---------- */
+(function(){
+  const FN=[
+   {t:'x\u00B2 on [0, 3]',f:x=>x*x,a:0,b:3,ex:9,T:R`\ev{\frac{x^3}{3}}{0}{3} = 9`},
+   {t:'sin x on [0, \u03C0]',f:Math.sin,a:0,b:Math.PI,ex:2,T:R`\ev{\u2212\cos x}{0}{\pi} = 2`},
+   {t:'\u221Ax on [0, 4]',f:Math.sqrt,a:0,b:4,ex:16/3,T:R`\ev{\frac{2}{3}x^{3/2}}{0}{4} = \frac{16}{3}`},
+   {t:'e\u02E3 on [0, 1]',f:Math.exp,a:0,b:1,ex:Math.E-1,T:R`\ev{e^x}{0}{1} = e - 1`},
+   {t:'1/x on [1, e]',f:x=>1/x,a:1,b:Math.E,ex:1,T:R`\ev{\ln x}{1}{e} = 1`}];
+  const fs=$('#l7f'),ms=$('#l7m'),ns=$('#l7n'),cv=$('#l7cv');opt(fs,FN.map(k=>k.t));
+  function draw(){
+    const k=FN[fs.value],n=+ns.value,m=ms.value;$('#l7no').textContent=n;
+    let ymax=0;for(let i=0;i<=100;i++)ymax=Math.max(ymax,k.f(k.a+(k.b-k.a)*i/100));
+    const w=k.b-k.a;
+    const P=mk(cv,{x0:k.a-.1*w,x1:k.b+.1*w,y0:-.12*ymax,y1:ymax*1.15});axes(P);clipOn(P);
+    const {ctx,sx,sy,c}=P,dx=w/n;let sum=0;
+    ctx.fillStyle=c.soft;ctx.strokeStyle=c.accent;ctx.lineWidth=n>40?.6:1.5;
+    for(let i=0;i<n;i++){
+      const xl=k.a+i*dx,xr=xl+dx;ctx.beginPath();
+      if(m==='trap'){const y1=k.f(xl),y2=k.f(xr);sum+=(y1+y2)/2*dx;ctx.moveTo(sx(xl),sy(0));ctx.lineTo(sx(xl),sy(y1));ctx.lineTo(sx(xr),sy(y2));ctx.lineTo(sx(xr),sy(0));ctx.closePath()}
+      else{const h=m==='left'?k.f(xl):m==='right'?k.f(xr):k.f(xl+dx/2);sum+=h*dx;ctx.rect(sx(xl),sy(h),sx(xr)-sx(xl),sy(0)-sy(h))}
+      ctx.fill();ctx.stroke();
+    }
+    curve(P,k.f,k.a,k.b,c.amber,2.5);clipOff(P);
+    $('#l7info').innerHTML='<p>Sum with '+n+' strips: <b>'+f4(sum)+'</b> &nbsp; Exact: <b>'+f4(k.ex)+'</b> &nbsp; Error: <b>'+f4(Math.abs(sum-k.ex))+'</b></p><p>Exact value by the Fundamental Theorem: '+M(k.T)+'</p>';
+  }
+  on(['l7f','l7m','l7n'],draw);reg(draw);
+
+  let ans=0;
+  function newQ(){
+    const k=rnd(1,3),d=pick([1,2,3,4,-1,-2]),a=rnd(0,2),b=a+rnd(1,2);
+    ans=k*(b**3-a**3)+d*(b-a);
+    const dt=d===1?'+ x':d===-1?'\u2212 x':d>0?'+ '+d+'x':'\u2212 '+(-d)+'x';
+    const kt=k===1?'':k;
+    $('#l7q').innerHTML=T(R`\intl{${a}}{${b}}(${3*k}x^2 ${d>0?'+ '+d:'\u2212 '+(-d)})\,dx`);
+    $('#l7q').dataset.work=R`\ev{${kt}x^3 ${dt}}{${a}}{${b}} = (${k*b**3+d*b}) - (${k*a**3+d*a}) = ${ans}`;
+    $('#l7ans').value='';$('#l7fb').innerHTML='';
+  }
+  function check(){
+    const v=parseFloat($('#l7ans').value.replace('\u2212','-'));
+    const ok=Math.abs(v-ans)<0.01;
+    $('#l7fb').innerHTML=isNaN(v)?'<p>Type a number first.</p>':'<p class="msg '+(ok?'ok':'no')+'">'+(ok?'Correct.':'Not quite.')+'</p><p>Antiderivative, then subtract the lower limit from the upper: '+M($('#l7q').dataset.work)+'</p>';
+  }
+  $('#l7chk').addEventListener('click',check);$('#l7new').addEventListener('click',newQ);
+  $('#l7ans').addEventListener('keydown',e=>{if(e.key==='Enter')check()});newQ();
+})();
+
+/* ---------- Level 8 ---------- */
+(function(){
+  const FN=[
+   {t:'x\u00B2',f:x=>x*x},{t:'x\u00B3',f:x=>x*x*x},{t:'cos x',f:Math.cos},{t:'x sin x',f:x=>x*Math.sin(x)},
+   {t:'x\u00B3 cos x',f:x=>x*x*x*Math.cos(x)},{t:'e\u02E3',f:Math.exp},{t:'x + x\u00B2',f:x=>x+x*x}];
+  const fs=$('#l8f'),as=$('#l8a'),cv=$('#l8cv');opt(fs,FN.map(k=>k.t));
+  function kind(f){const xs=[.3,.7,1.1,1.9];const ev=xs.every(x=>Math.abs(f(-x)-f(x))<1e-9),od=xs.every(x=>Math.abs(f(-x)+f(x))<1e-9);return ev?'even':od?'odd':'neither'}
+  function draw(){
+    const k=FN[fs.value],a=+as.value;$('#l8ao').textContent=a.toFixed(1);
+    let m=1;for(let i=0;i<=100;i++)m=Math.max(m,Math.abs(k.f(-a+2*a*i/100)));
+    const P=mk(cv,{x0:-a-.6,x1:a+.6,y0:-m*1.2,y1:m*1.2});axes(P);clipOn(P);
+    fillBetween(P,x=>Math.max(k.f(x),0),()=>0,-a,a,P.c.soft);
+    fillBetween(P,x=>Math.min(k.f(x),0),()=>0,-a,a,P.c.asoft);
+    curve(P,k.f,-a-.6,a+.6,P.c.accent,3);
+    seg(P,-a,-m*1.2,-a,m*1.2,P.c.muted,1,[4,4]);seg(P,a,-m*1.2,a,m*1.2,P.c.muted,1,[4,4]);
+    clipOff(P);
+    const whole=simpson(k.f,-a,a),half=simpson(k.f,0,a),kd=kind(k.f);
+    const msg=kd==='even'?'The graph mirrors across the y-axis, so the whole equals twice the right half.':kd==='odd'?'The left half is the mirror image upside down, so the two halves cancel exactly.':'No symmetry, so there is no shortcut. Compute it directly.';
+    $('#l8info').innerHTML='<p>f is <b>'+kd+'</b>. '+msg+'</p><p>'+M(R`\intl{-a}{a}f\,dx = ${f4(whole)}`)+' &nbsp; '+M(R`2\intl{0}{a}f\,dx = ${f4(2*half)}`)+'</p><p class="note">Blue is positive area, amber is negative area.</p>';
+  }
+  on(['l8f','l8a'],draw);reg(draw);
+})();
+
+/* ---------- Level 9 ---------- */
+(function(){
+  const sel=$('#l9sel'),ctl=$('#l9ctl'),cv=$('#l9cv');
+  const S=[
+   {t:'Parabola y = x\u00B2 and line y = x',p:[],eq:false,
+    view:()=>({x0:-.3,x1:1.4,y0:-.2,y1:1.3}),
+    draw(P){fillBetween(P,x=>x,x=>x*x,0,1,P.c.soft);curve(P,x=>x*x,-.3,1.4,P.c.accent,3);curve(P,x=>x,-.3,1.4,P.c.amber,3);tag(P,'y = x\u00B2',1.05,1.2,P.c.accent);tag(P,'y = x',.2,.62,P.c.amber)},
+    info:()=>'<p>They meet where x\u00B2 = x, so x = 0 and x = 1. The line is on top.</p><p>'+M(R`Area = \intl{0}{1}(x - x^2)\,dx = \ev{\frac{x^2}{2} - \frac{x^3}{3}}{0}{1} = \frac{1}{6} \approx ${f4(simpson(x=>x-x*x,0,1))}`)+'</p>'},
+   {t:'Parabola y\u00B2 = 4ax and its latus rectum',p:[{id:'a',l:'a',min:.5,max:3,step:.1,v:1.5}],eq:true,
+    view:p=>({x0:-1.5*p.a,x1:2.7*p.a,y0:-2.6*p.a,y1:2.6*p.a}),
+    draw(P,p){const a=p.a;fillBetween(P,x=>2*Math.sqrt(a*x),x=>-2*Math.sqrt(a*x),0,a,P.c.soft);
+      curve(P,x=>2*Math.sqrt(a*x),0,2.7*a,P.c.accent,3);curve(P,x=>-2*Math.sqrt(a*x),0,2.7*a,P.c.accent,3);
+      seg(P,a,-2*a,a,2*a,P.c.amber,3);seg(P,-a,-2.6*a,-a,2.6*a,P.c.muted,1.5,[6,5]);dot(P,a,0,P.c.amber,5);
+      tag(P,'focus',a+.05*a,-.15*a,P.c.amber);tag(P,'directrix',-a+.05*a,2.3*a,P.c.muted);tag(P,'latus rectum',a+.06*a,1.6*a,P.c.amber)},
+    info:p=>'<p>Focus ('+p.a.toFixed(1)+', 0), directrix x = \u2212'+p.a.toFixed(1)+', latus rectum length 4a = '+(4*p.a).toFixed(1)+'.</p><p>'+M(R`Area = 2\intl{0}{a}2\sqrt{ax}\,dx = \frac{8a^2}{3} = ${f4(8*p.a*p.a/3)}`)+'</p>'},
+   {t:'Ellipse x\u00B2/a\u00B2 + y\u00B2/b\u00B2 = 1',p:[{id:'a',l:'a',min:1,max:5,step:.5,v:4},{id:'b',l:'b',min:1,max:4,step:.5,v:2.5}],eq:true,
+    view:()=>({x0:-6,x1:6,y0:-4,y1:4}),
+    draw(P,p){const {ctx,sx,sy}=P;ctx.beginPath();for(let i=0;i<=200;i++){const t=i/200*Math.PI*2,X=sx(p.a*Math.cos(t)),Y=sy(p.b*Math.sin(t));i?ctx.lineTo(X,Y):ctx.moveTo(X,Y)}ctx.closePath();
+      ctx.fillStyle=P.c.soft;ctx.fill();ctx.strokeStyle=P.c.accent;ctx.lineWidth=3;ctx.stroke();
+      const c=Math.sqrt(Math.abs(p.a*p.a-p.b*p.b));if(c>1e-9){if(p.a>=p.b){dot(P,c,0,P.c.amber);dot(P,-c,0,P.c.amber)}else{dot(P,0,c,P.c.amber);dot(P,0,-c,P.c.amber)}}},
+    info:p=>'<p>Semi-axes a = '+p.a+' and b = '+p.b+'. The amber dots are the foci, at distance c = '+Math.sqrt(Math.abs(p.a*p.a-p.b*p.b)).toFixed(2)+' from the centre.</p><p>'+M(R`Area = 4\intl{0}{a}b\sqrt{1 - \frac{x^2}{a^2}}\,dx = \pi a b = ${f4(Math.PI*p.a*p.b)}`)+'</p>'},
+   {t:'sin x and cos x between their crossings',p:[],eq:false,
+    view:()=>({x0:-.3,x1:6.6,y0:-1.4,y1:1.4}),
+    draw(P){fillBetween(P,Math.sin,Math.cos,Math.PI/4,5*Math.PI/4,P.c.soft);curve(P,Math.sin,-.3,6.6,P.c.accent,3);curve(P,Math.cos,-.3,6.6,P.c.amber,3);tag(P,'sin x',1.6,1.05,P.c.accent);tag(P,'cos x',.1,1.15,P.c.amber)},
+    info:()=>'<p>They cross at x = \u03C0/4 and x = 5\u03C0/4, and sin x is on top in between.</p><p>'+M(R`Area = \intl{\pi/4}{5\pi/4}(\sin x - \cos x)\,dx = \ev{\u2212\cos x - \sin x}{\pi/4}{5\pi/4} = 2\sqrt{2} \approx ${f4(simpson(x=>Math.sin(x)-Math.cos(x),Math.PI/4,5*Math.PI/4))}`)+'</p>'}];
+  opt(sel,S.map(s=>s.t));
+  let params={};
+  function build(){
+    const s=S[+sel.value];params={};ctl.innerHTML='';
+    s.p.forEach(q=>{params[q.id]=q.v;
+      const l=document.createElement('label');l.innerHTML=q.l+' <input id="l9p'+q.id+'" type="range" min="'+q.min+'" max="'+q.max+'" step="'+q.step+'" value="'+q.v+'"><output id="l9o'+q.id+'"></output>';
+      ctl.appendChild(l);l.querySelector('input').addEventListener('input',e=>{params[q.id]=+e.target.value;draw()});});
+    draw();
+  }
+  function draw(){
+    const s=S[+sel.value];s.p.forEach(q=>{const o=$('#l9o'+q.id);if(o)o.textContent=params[q.id].toFixed(1)});
+    const P=mk(cv,s.view(params),s.eq);axes(P);clipOn(P);s.draw(P,params);clipOff(P);
+    $('#l9info').innerHTML=s.info(params);
+  }
+  sel.addEventListener('input',build);build();redraws.push(draw);
+})();
+
+/* ---------- Level 10 ---------- */
+(function(){
+  const E=[
+   {t:'dy/dx = x',f:(x,y)=>x,g:R`y = \frac{x^2}{2} + C`,C:(x,y)=>y-x*x/2,sol:(x0,y0)=>x=>y0+(x*x-x0*x0)/2},
+   {t:'dy/dx = y',f:(x,y)=>y,g:R`y = Ce^x`,C:(x,y)=>y*Math.exp(-x),sol:(x0,y0)=>x=>y0*Math.exp(x-x0)},
+   {t:'dy/dx = \u2212x/y',f:(x,y)=>-x/y,g:R`x^2 + y^2 = C`,C:(x,y)=>x*x+y*y,circle:true},
+   {t:'dy/dx + y = x',f:(x,y)=>x-y,g:R`y = x - 1 + Ce^{-x}`,C:(x,y)=>(y-x+1)*Math.exp(x),sol:(x0,y0)=>x=>x-1+((y0-x0+1)*Math.exp(x0))*Math.exp(-x)}];
+  const sel=$('#l10sel'),cv=$('#l10cv');opt(sel,E.map(e=>e.t));
+  let pt={x:1,y:1},last=null;
+  function draw(){
+    const e=E[+sel.value];
+    const P=mk(cv,{x0:-5,x1:5,y0:-3,y1:3},true);last=P;axes(P);clipOn(P);
+    const {ctx,sx,sy,view:v}=P;
+    ctx.strokeStyle=P.c.muted;ctx.lineWidth=1.3;ctx.globalAlpha=.8;
+    const kx=sx(1)-sx(0),ky=sy(1)-sy(0);
+    for(let x=Math.ceil(v.x0*2)/2;x<=v.x1;x+=.5)for(let y=Math.ceil(v.y0*2)/2;y<=v.y1;y+=.5){
+      const m=e.f(x,y);let dx=kx,dy=ky*(isFinite(m)?m:1e9);
+      if(!isFinite(m)||Math.abs(m)>1e6){dx=0;dy=ky>0?-1:1}
+      const L=Math.hypot(dx,dy)||1,h=7/L;
+      ctx.beginPath();ctx.moveTo(sx(x)-dx*h,sy(y)-dy*h);ctx.lineTo(sx(x)+dx*h,sy(y)+dy*h);ctx.stroke();
+    }
+    ctx.globalAlpha=1;
+    if(e.circle){const r=Math.sqrt(pt.x*pt.x+pt.y*pt.y);ctx.beginPath();ctx.arc(sx(0),sy(0),r*kx,0,Math.PI*2);ctx.strokeStyle=P.c.accent;ctx.lineWidth=3;ctx.stroke()}
+    else{curve(P,e.sol(pt.x,pt.y),v.x0,v.x1,P.c.accent,3)}
+    dot(P,pt.x,pt.y,P.c.amber,6);clipOff(P);
+    const C=e.C(pt.x,pt.y);
+    $('#l10info').innerHTML='<p>General solution: '+M(e.g)+'</p><p>Through ('+fmt(pt.x)+', '+fmt(pt.y)+') the constant is C = '+fmt(C)+(e.circle?', a circle of radius '+Math.sqrt(C).toFixed(2):'')+'.</p>';
+  }
+  function setPt(ev){if(!last)return;const r=cv.getBoundingClientRect();pt={x:last.ix(ev.clientX-r.left),y:last.iy(ev.clientY-r.top)};draw()}
+  let down=false;
+  cv.addEventListener('pointerdown',ev=>{down=true;try{cv.setPointerCapture(ev.pointerId)}catch(e){}setPt(ev)});
+  cv.addEventListener('pointermove',ev=>{if(down)setPt(ev)});
+  cv.addEventListener('pointerup',()=>{down=false});
+  sel.addEventListener('input',draw);reg(draw);
+})();
+
+/* ---------- Formula sheet ---------- */
+(function(){
+  const g=$('#refgrid');
+  const card=(h,rows)=>{const d=document.createElement('div');d.className='card';d.innerHTML='<h3>'+h+'</h3>'+rows.map(r=>'<div class="row m">'+T(r)+'</div>').join('');g.appendChild(d)};
+  card('Basic',BASIC.map(r=>r[0]+' = '+r[1]));
+  card('Standard forms',STD.map(r=>r[0]+' = '+r[1]));
+  card('Techniques',[R`\int f(g(x))g'(x)\,dx = \int f(u)\,du`,R`\int \frac{f'(x)}{f(x)}\,dx = \ln|f(x)| + C`,R`\int u\,dv = uv - \int v\,du \quad (ILATE)`,R`\int e^x[f + f']\,dx = e^x f + C`]);
+  card('Definite integrals',[R`\intl{a}{b}f\,dx = F(b) - F(a)`,R`\intl{a}{b}f(x)\,dx = \intl{a}{b}f(a+b-x)\,dx`,R`\intl{-a}{a}f\,dx = 2\intl{0}{a}f\,dx \;(even), \; 0 \;(odd)`,R`\intl{0}{2a}f\,dx = 2\intl{0}{a}f\,dx \;if\; f(2a-x) = f(x)`]);
+  card('Areas',[R`\intl{a}{b}[f(x) - g(x)]\,dx`,R`Ellipse: \pi ab`,R`Parabola y^2 = 4ax up to x = a: \frac{8a^2}{3}`,R`Circle: \pi r^2`]);
+  card('Differential equations',[R`Separable: \int \frac{dy}{g(y)} = \int f(x)\,dx`,R`Linear: y \cdot e^{\int P\,dx} = \int Q\,e^{\int P\,dx}\,dx + C`,R`Order = highest derivative; degree = its power`]);
+})();
+
+paint();
+})();
+</script>
+
+</body></html>
